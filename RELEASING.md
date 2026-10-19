@@ -137,7 +137,8 @@ account linkage and IDs; do not add broad project-owner permissions as a fix.
 ## 5. Release future changes
 
 1. Change the source, update `manifest.json` and `package.json` to the same new
-   version, such as `1.0.9`, and record the changes in the README/release notes.
+   version, such as `1.0.9`, and record the changes in `CHANGELOG.md` and the GitHub release notes.
+   Keep the README focused on current installation, configuration and usage.
 2. Run `npm test`, `python3 -m unittest discover -s scripts -p 'test_*.py'`, and
    `python3 scripts/package.py`. Test the actual extension against an appropriate
    FS PBX test account before releasing phone-control behavior changes.
