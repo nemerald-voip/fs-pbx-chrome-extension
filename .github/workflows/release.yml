@@ -1,0 +1,102 @@
+name: Release extension
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing tag matching manifest version, for example v1.0.9
+        required: true
+        type: string
+      store_action:
+        description: Chrome Web Store action (requires configured Google authentication)
+        required: true
+        type: choice
+        default: none
+        options: [none, upload, publish]
+permissions:
+  contents: read
+concurrency:
+  group: chrome-web-store-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+    steps:
+      - name: Validate release tag
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Use a vMAJOR.MINOR.PATCH tag'; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm test
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Build store ZIP
+        id: build
+        run: python3 scripts/package.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: extension-${{ steps.build.outputs.version }}
+          path: dist/*
+          if-no-files-found: error
+      - name: Create GitHub release with package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PACKAGE: ${{ steps.build.outputs.package }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo 'Existing GitHub release retained; assets were not overwritten.'
+          else
+            gh release create "$RELEASE_TAG" "$PACKAGE" "$PACKAGE.sha256" --verify-tag --title "FS PBX Click to Dial $RELEASE_TAG" --generate-notes
+          fi
+      - name: Select store action
+        id: store
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REQUESTED_ACTION: ${{ inputs.store_action }}
+          AUTOMATION_ENABLED: ${{ vars.CWS_AUTOMATION_ENABLED }}
+        run: |
+          mode=none
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            mode="$REQUESTED_ACTION"
+          elif [[ "$AUTOMATION_ENABLED" == true ]]; then
+            mode=publish
+          fi
+          case "$mode" in none|upload|publish) ;; *) exit 1 ;; esac
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Chrome Web Store action: $mode" >> "$GITHUB_STEP_SUMMARY"
+      - name: Authenticate to Google with a short-lived token
+        if: steps.store.outputs.mode != 'none'
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.CWS_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          create_credentials_file: false
+          export_environment_variables: false
+      - name: Upload or submit to Chrome Web Store
+        if: steps.store.outputs.mode != 'none'
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: ${{ vars.CWS_EXTENSION_ID }}
+          STORE_MODE: ${{ steps.store.outputs.mode }}
+          PACKAGE: ${{ steps.build.outputs.package }}
+        run: |
+          args=()
+          if [[ "$STORE_MODE" == publish ]]; then args+=(--publish); fi
+          python3 scripts/chrome_store.py "$PACKAGE" "${args[@]}"
