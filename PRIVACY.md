@@ -1,6 +1,6 @@
-# FS PBX Click to Dial — privacy details
+# FS PBX Click to Dial — Privacy Policy
 
-Version 1.0.8 — 2026-10-19
+Last updated: 2026-10-24. Applies to extension version 1.0.8.
 
 This extension sends phone numbers you choose to dial to the FS PBX server you configure. It does not use an external analytics or calling service.
 
@@ -35,4 +35,10 @@ The Settings form selects **Enable phone links on all websites** by default when
 
 Choose **Forget connection** in Settings to remove this extension's saved connection and token, optional website integration permissions, and temporary request state. Uninstalling the extension removes its local extension storage. Revoke the token separately in FS PBX if it should no longer be usable.
 
-For a Chrome Web Store release, the publisher must host this policy at a public URL and supply its actual support/contact details. This document is not a claim that a store listing already exists.
+## Publisher and contact
+
+This extension is maintained by the FS PBX project through the
+[nemerald-voip GitHub account](https://github.com/nemerald-voip).
+For questions about the extension or this policy, use the
+[project support page](https://github.com/nemerald-voip/fs-pbx-chrome-extension/issues).
+The support page is public; keep API tokens and personal information out of issue reports.

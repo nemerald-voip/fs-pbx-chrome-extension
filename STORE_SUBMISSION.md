@@ -1,19 +1,25 @@
 # Publishing as an FS PBX Chrome Web Store extension
 
-This package is currently a manual-install development release. No developer account has been registered, no submission has been made and Google approval is not implied.
+The developer account is verified. Version 1.0.8 is ready for its first store upload; account verification does not mean Google has reviewed or approved the extension.
 
 ## Publication steps
 
 1. Complete the live Chrome/PBX/handset checks in `TEST_REPORT.md`.
 2. Use the FS PBX owner's Chrome Web Store developer account. Complete Google's registration and account requirements.
-3. Add your actual publisher/support details and host the privacy policy at an FS PBX-controlled public URL.
-4. Capture real screenshots of the finished extension in Chrome and prepare the listing artwork required by the dashboard. Do not show production tokens or client numbers.
-5. Create a ZIP with `manifest.json` at the root. Include the runtime HTML/JS/CSS, icons and privacy document. Tests and developer documentation can be excluded from the store upload.
+3. Complete the publisher details and use the public privacy-policy and support URLs below.
+4. Capture at least one real screenshot of the finished extension in Chrome, at 1280×800 or 640×400 pixels. Upload the 128×128 icon from `icons/128.png`. The 440×280 small promo tile and 1400×560 marquee are optional. Do not show production tokens or client numbers.
+5. Run `python3 scripts/package.py` and upload `dist/fs-pbx-click-to-dial-1.0.8.zip`. It contains `manifest.json` at the root and the runtime assets. If downloading a GitHub Actions artifact, extract its outer ZIP and upload the extension ZIP inside it. Do not upload the repository source bundle.
 6. In the developer dashboard, upload it as a new item, complete Store Listing, Privacy, Distribution and Test instructions, then submit for review.
 7. Provide a restricted demo PBX account and test phone workflow if Google needs authenticated access to review the feature. Do not provide a production administrator token.
 8. After approval, publish it using your selected distribution mode. For subsequent releases, increment the manifest version and upload the update to the same listing.
 
 The source is Manifest V3 and does not depend on manually installed native software. Store publication enables the normal Chrome installation/update flow. Manual unpacked installations are updated by replacing their local files and reloading the extension.
+
+## Listing URLs
+
+- Homepage: https://github.com/nemerald-voip/fs-pbx-chrome-extension
+- Support: https://github.com/nemerald-voip/fs-pbx-chrome-extension/issues
+- Privacy policy: https://github.com/nemerald-voip/fs-pbx-chrome-extension/blob/main/PRIVACY.md
 
 ## Suggested listing information
 
@@ -47,7 +53,24 @@ Requires a compatible FS PBX server, a registered desk phone, and an API token w
 
 All JavaScript is packaged locally. There is no remotely hosted code or evaluation of downloaded scripts. Declare authentication information and phone-number handling accurately in Google's Privacy questionnaire; transmission to the user's PBX must be disclosed even though the publisher does not operate a collection backend.
 
-Official publication instructions, checked 2026-10-19:
+## Reviewer test access
+
+Provide a dedicated demo tenant, HTTPS server address, domain UUID, source extension,
+restricted API token and approved test destination in Google's private **Test
+instructions** tab. The demo token needs tenant and source-extension access plus
+`phone_control_view` and `phone_control_call`. Keep the test phone registered and
+explain how reviewers can observe the dialing result. Enter the details directly
+in the dashboard; do not commit them to GitHub.
+
+Test steps: open Settings, save the supplied connection and approve the selected
+website access, discover/select the demo phone, save settings, then use the toolbar
+to dial the supplied test destination. Also test selecting a number on a webpage
+and using **Call with FS PBX** to open the confirmation dropdown.
+
+After the item is created, retain its extension ID and publisher ID for the
+GitHub publishing setup in `RELEASING.md`.
+
+Official publication instructions, checked 2026-10-24:
 
 - https://developer.chrome.com/docs/webstore/publish
 - https://developer.chrome.com/docs/webstore/register
