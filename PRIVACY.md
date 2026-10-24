@@ -25,11 +25,25 @@ The PBX and its operator may store their normal API/call logs. Their retention a
 
 ## Website access
 
-Selected-text context-menu dialing does not require reading the entire page. Optional phone-link integration listens for user clicks on `tel:` or `callto:` links on individual hostnames you enable or, after a one-time Chrome permission approval, on all HTTP/HTTPS websites. It does not collect page contents, browsing history, contacts or microphone audio. Individual website addresses entered in Settings are used locally to request access and save phone-link preferences. Chrome may describe the broad grant as permission to read and change data on all websites. The extension only listens for phone-link clicks; it does not scan or transmit whole pages. Disabling phone-link handling does not revoke Chrome permission grants; change them in Chrome Site access or choose Forget connection.
+Selected-text context-menu dialing does not require reading the entire page. Optional phone-link integration listens for user clicks on `tel:` or `callto:` links on individual hostnames you enable or, after a one-time Chrome permission approval, on all HTTP/HTTPS websites. It handles the phone-link or selected-number content you choose to use, but does not collect unrelated page content, a browsing history, address-book contacts or microphone audio. Individual website addresses entered in Settings are used locally to request access and save phone-link preferences. Chrome may describe the broad grant as permission to read and change data on all websites. The extension only listens for phone-link clicks; it does not scan or transmit whole pages. Disabling phone-link handling does not revoke Chrome permission grants; change them in Chrome Site access or choose Forget connection.
 
 When restoring or changing website integration, the extension queries matching open tabs and replaces its local phone-link handler where Chrome allows access. This operation uses tab addresses locally; it does not retain or transmit those addresses or place calls.
 
 The Settings form selects **Enable phone links on all websites** by default when no website choice has been saved. Either Save button requests that optional Chrome access and enables phone links after approval. Uncheck it before saving to request only the PBX hostname. Explicit opt-outs and individual-site preferences are retained.
+
+## Limited use and sharing
+
+FS PBX Click to Dial's use and transfer of user data complies with the Chrome Web
+Store's [Limited Use requirements](https://developer.chrome.com/docs/webstore/program-policies/limited-use).
+Data is used only for the disclosed click-to-dial features: saving your connection,
+finding your phone, preparing and sending calls you confirm, enabling phone links,
+and preventing duplicate requests.
+
+The extension sends data only to the HTTPS PBX you configure. It does not send
+user data to a separate publisher collection service, sell user data, or use or
+transfer it for advertising, profiling, credit decisions or lending.
+Access to records held by your configured PBX remains subject to that operator's
+privacy practices, as described above.
 
 ## Removing information
 
