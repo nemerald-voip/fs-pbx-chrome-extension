@@ -1,89 +1,71 @@
-# GitHub hosting and Chrome Web Store releases
+# Automatic Chrome Web Store updates
 
-Prepared for `nemerald-voip/fs-pbx-chrome-extension`, starting with extension 1.0.8.
-This repository contains the extension source and release workflows. Google
-authentication still needs to be configured. No Chrome Web Store upload or
-submission has been performed by these files.
+FS PBX Click to Dial has been approved and published in the Chrome Web Store.
+This repository submits future updates from `main` once the one-time Google
+publishing connection below is configured. Store approval alone does not give
+GitHub permission to publish. No working Google connection has been verified yet.
 
-GitHub stores the source, change history, tests and release downloads. Chrome Web
-Store hosts the installed extension and delivers approved updates. No separate
-VPS, application server or GitHub Pages deployment is needed for the extension.
-Its FS PBX API server remains your existing server. GitHub ZIP downloads do not
-auto-update unpacked installations.
-
-## 1. Work with the source repository
-
-The source is hosted at <https://github.com/nemerald-voip/fs-pbx-chrome-extension>.
-Clone it with GitHub Desktop or Git:
-
-```bash
-git clone https://github.com/nemerald-voip/fs-pbx-chrome-extension.git
-cd fs-pbx-chrome-extension
-```
-
-The repository is public. Keep credentials and tenant configuration out of the
-source. No open-source license has been selected yet; public visibility alone
-does not grant an open-source license.
-
-The store uploader can remain unconfigured while Google verifies your account.
-Normal pushes and pull requests run checks and produce a downloadable ZIP in
-**Actions > Check extension**. Open a successful run and download its artifact.
-For unpacked testing, use the extracted runtime ZIP or load this source folder
-through `chrome://extensions`.
-
-## 2. How the prepared workflows behave
+## What happens when you push
 
 | Event | Result |
 | --- | --- |
-| Branch push or pull request | Run tests and build a ZIP; no store access |
-| Push a new version tag such as `v1.0.9` | Test, package, create a GitHub Release with ZIP and checksum |
-| Tag push with `CWS_AUTOMATION_ENABLED=true` | Also upload and submit to Google for review |
-| Manually run Release extension with `none` | Build/release only |
-| Manually run with `upload` | Upload a store draft, without requesting review |
-| Manually run with `publish` | Upload and submit for review, then publish after approval |
+| Push or merge commits into `main` | Test, build with an automatic version, upload and submit for review |
+| Push another branch or open a pull request | Tests and a downloadable ZIP only; no store access |
+| Scheduled check at minutes 17 and 47 each hour | Retry the latest `main` after a previous review/upload clears; skip versions already published |
+| Run **Submit Chrome Web Store update**, action **check** | Test/build and verify Google access without uploading or submitting |
+| Run that workflow, action **publish** | Submit the latest `main` immediately if the store is ready |
+| Push a version tag such as `v1.0.9` | Optional GitHub Release and download; no Chrome submission |
 
-Manual actions are explicit and work independently of the automatic-submission
-flag. Leave that flag unset while verification is pending. The workflow never
-requests a review bypass. It stops on store validation warnings, failed uploads,
-an existing pending/staged submission, or a version that is not newer than the
-published version. It does not cancel submissions or change listing visibility.
-API requests are not automatically retried after ambiguous network failures;
-inspect the dashboard before retrying.
+Local commits must be **pushed to GitHub** to trigger this. Every push to main,
+including documentation changes, is eligible. The workflow checks out the latest
+main when it starts, so rapid commits or several commits in one push can share
+one submission containing all their changes. It never publishes feature branches.
 
-The package builder uses an explicit runtime-file list, so tests, CI files,
-documentation and Google credentials cannot enter the store ZIP. Add new runtime
-assets to `FILES` in `scripts/package.py` when the extension gains them. The
-source bundle itself is not the ZIP to upload to Google; use the generated
-`dist/fs-pbx-click-to-dial-VERSION.zip`.
+Google reviews updates and publishes them after approval. Existing submissions
+are not cancelled. If an earlier version is in review, the run reports
+`DEFERRED_REVIEW`; the scheduled check picks up the latest main afterward.
+GitHub schedules can be delayed, and scheduled workflows in inactive public
+repositories can be disabled by GitHub. New pushes still trigger submission.
 
-## 3. Complete the first Chrome listing
+A staged version requires you to publish or cancel it in the store dashboard.
+Rejected/cancelled versions are not repeatedly resubmitted: address the reason
+and push a new commit. Policy warnings, takedowns and unexpected states stop the
+run. An API/network error fails the run; a later run reads store status before
+doing anything, including when an earlier submission response was lost.
 
-After verification, create the store item in the Developer Dashboard and upload
-the extension ZIP. Complete the listing, images, privacy disclosures, review
-instructions and distribution choice. Publish the first version through the
-dashboard so that those choices are established. Record:
+## Automatic versions
 
-- **Publisher ID:** Publisher > Settings in the Chrome Web Store dashboard.
-- **Extension ID:** the store item's 32-letter ID. This is not an unpacked
-  development installation's ID.
+Keep the three-part source version in `manifest.json` and `package.json` equal.
+For ordinary commits you do **not** need to edit either version or create a tag.
 
-Future uploads must update this same item. If you change its visibility later,
-publish that visibility change manually once before using API publishing again.
+The store ZIP adds the full Git history's commit count as a fourth version part:
+for example, base `1.0.8` at commit count 6 becomes `1.0.8.6`. The builder changes
+only the manifest inside the ZIP, leaving source files untouched. It carries
+revision overflow into the patch component after 65,535 commits.
 
-## 4. Connect GitHub Actions to Google without saving a permanent key
+A given source commit produces the same version and bytes on retries. This
+prevents schedules and reruns from generating endless updates. A newer version
+already in the store blocks an older build. Keep main history append-only; use
+a revert commit for rollbacks instead of force-pushing history backwards. If a
+manual store upload has advanced past the automatic version, raise both source
+versions together before the next push.
 
-This workflow uses Google's authentication action with Workload Identity
-Federation and a dedicated service account. GitHub obtains a short-lived token;
-there is no FS PBX API token or Google private key in this repository.
+## One-time Google connection
 
-1. Create or select a Google Cloud project. Enable **Chrome Web Store API**.
-2. Create a service account such as `chrome-store-publisher`.
-3. In the Chrome Web Store Developer Dashboard's Account section, add that
-   service account's email. This grants it authority over the publisher's items.
-4. Configure the Google trust relationship below, then add the GitHub variables.
+Use the existing published store listing. Record its **32-letter extension ID**
+from the store URL and your **publisher ID** from the Chrome developer dashboard's
+publisher settings. These identifiers are not passwords.
 
-Use Google Cloud Shell or an authenticated `gcloud` CLI. Replace the Google Cloud project ID. The numeric repository and owner IDs below
-were resolved from `nemerald-voip/fs-pbx-chrome-extension`.
+The workflow uses a dedicated Google service account and Workload Identity
+Federation. It gets a short-lived token, so no Google private key or PBX token
+needs to be stored in GitHub.
+
+1. Create or select a Google Cloud project.
+2. In GitHub's **Settings > Secrets and variables > Actions > Variables**, set
+   `CWS_AUTOMATION_ENABLED=false` while setting up.
+3. Run the following in Google Cloud Shell or an authenticated `gcloud` CLI.
+   Replace `YOUR_GOOGLE_CLOUD_PROJECT_ID`. The repository and owner IDs below
+   belong to `nemerald-voip/fs-pbx-chrome-extension`.
 
 ```bash
 PROJECT_ID='YOUR_GOOGLE_CLOUD_PROJECT_ID'
@@ -93,15 +75,20 @@ REPOSITORY='nemerald-voip/fs-pbx-chrome-extension'
 SERVICE_ACCOUNT="chrome-store-publisher@${PROJECT_ID}.iam.gserviceaccount.com"
 
 gcloud services enable chromewebstore.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com --project="$PROJECT_ID"
+
 gcloud iam service-accounts create chrome-store-publisher --project="$PROJECT_ID" --display-name='Chrome Web Store publisher'
+
 gcloud iam workload-identity-pools create github-chrome-store --project="$PROJECT_ID" --location=global --display-name='FS PBX extension releases'
+
 POOL_NAME=$(gcloud iam workload-identity-pools describe github-chrome-store --project="$PROJECT_ID" --location=global --format='value(name)')
+
+TRUST_CONDITION="assertion.repository_owner_id == '${OWNER_ID}' && assertion.repository_id == '${REPOSITORY_ID}' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref == '${REPOSITORY}/.github/workflows/release.yml@refs/heads/main' && assertion.event_name in ['push', 'schedule', 'workflow_dispatch']"
 
 gcloud iam workload-identity-pools providers create-oidc extension-releases \
   --project="$PROJECT_ID" --location=global --workload-identity-pool=github-chrome-store \
   --issuer-uri=https://token.actions.githubusercontent.com \
   --attribute-mapping='google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.repository_owner_id=assertion.repository_owner_id,attribute.ref=assertion.ref,attribute.event_name=assertion.event_name,attribute.workflow_ref=assertion.workflow_ref' \
-  --attribute-condition="assertion.repository_owner_id == '${OWNER_ID}' && assertion.repository_id == '${REPOSITORY_ID}' && assertion.workflow_ref.startsWith('${REPOSITORY}/.github/workflows/release.yml@') && ((assertion.event_name == 'push' && assertion.ref.startsWith('refs/tags/v')) || (assertion.event_name == 'workflow_dispatch' && assertion.ref == 'refs/heads/main'))"
+  --attribute-condition="$TRUST_CONDITION"
 
 gcloud iam service-accounts add-iam-policy-binding "$SERVICE_ACCOUNT" \
   --project="$PROJECT_ID" --role=roles/iam.workloadIdentityUser \
@@ -109,75 +96,84 @@ gcloud iam service-accounts add-iam-policy-binding "$SERVICE_ACCOUNT" \
 
 gcloud iam workload-identity-pools providers describe extension-releases \
   --project="$PROJECT_ID" --location=global --workload-identity-pool=github-chrome-store --format='value(name)'
+
+echo "CWS_SERVICE_ACCOUNT=$SERVICE_ACCOUNT"
 ```
 
-If you created the service account in the console, skip its create command.
-Run each creation step once. Allow a few minutes for IAM changes to propagate.
-Manual releases should run the workflow from `main`, with the desired existing
-version tag in its input; the Google condition intentionally allows that path
-and version-tag push events only. Keep release tags unchanged once created.
+Run creation commands once; skip resources you already created. If you configured
+the previous tag-based workflow, update the existing provider to trust main
+pushes and scheduled retries using the `TRUST_CONDITION` above:
 
-Under the GitHub repository's **Settings > Secrets and variables > Actions >
-Variables**, add these repository variables:
+```bash
+gcloud iam workload-identity-pools providers update-oidc extension-releases \
+  --project="$PROJECT_ID" --location=global --workload-identity-pool=github-chrome-store \
+  --attribute-condition="$TRUST_CONDITION"
+```
+
+4. Add the **service account email** to the Chrome Web Store publisher's
+   **Account/Settings > Service account** field. This is separate from your
+   verified contact email. Enable the Chrome Web Store API in the Cloud project.
+5. Add these **repository Actions variables** in GitHub:
 
 | Variable | Value |
 | --- | --- |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider name printed by the last command |
-| `CWS_SERVICE_ACCOUNT` | Service account email added to the Chrome dashboard |
-| `CWS_PUBLISHER_ID` | Dashboard publisher ID |
-| `CWS_EXTENSION_ID` | Store item's extension ID |
-| `CWS_AUTOMATION_ENABLED` | Leave unset initially; set to `true` for tag-triggered submission |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider resource name printed by the describe command |
+| `CWS_SERVICE_ACCOUNT` | Service account email linked to your Chrome publisher |
+| `CWS_PUBLISHER_ID` | Existing publisher ID from the dashboard |
+| `CWS_EXTENSION_ID` | Existing published extension's 32-letter ID |
+| `CWS_AUTOMATION_ENABLED` | `false` during setup; `true` when ready |
 
-These are configuration identifiers, not secret keys. The workflow requests the
-`https://www.googleapis.com/auth/chromewebstore` scope explicitly. Restrict who
-can write this repository and create release tags, since those users can release
-the extension. If authentication fails, verify the provider condition, service
-account linkage and IDs; do not add broad project-owner permissions as a fix.
+6. Allow a few minutes for Google IAM changes to propagate. In **Actions >
+   Submit Chrome Web Store update > Run workflow**, choose branch **main** and
+   action **check**. This works even while automation is paused. Confirm its
+   authentication/status check succeeds.
+7. Set `CWS_AUTOMATION_ENABLED=true` and run it once with action **publish**.
+   Future main pushes submit automatically. The flag is an emergency pause:
+   an unset flag also enables submissions if all four connection variables exist.
 
-## 5. Release future changes
+A push with missing connection variables fails clearly after building its ZIP;
+it does not report a successful submission. Scheduled runs wait until all four
+variables exist. An incorrect variable or missing service-account linkage fails
+authentication/status checks. Never add broad Google project-owner permissions
+to fix a publishing error.
 
-1. Change the source, update `manifest.json` and `package.json` to the same new
-   version, such as `1.0.9`, and record the changes in `CHANGELOG.md` and the GitHub release notes.
-   Keep the README focused on current installation, configuration and usage.
-2. Run `npm test`, `python3 -m unittest discover -s scripts -p 'test_*.py'`, and
-   `python3 scripts/package.py`. Test the actual extension against an appropriate
-   FS PBX test account before releasing phone-control behavior changes.
-3. Commit and push to `main`; check that **Check extension** passes.
-4. Create and push the matching tag:
+Only trusted maintainers should be able to write to main or change these
+workflows. The Google condition restricts access to this repository's numeric
+IDs, this exact workflow, main and the three intended trigger types.
 
-   ```bash
-   git tag v1.0.9
-   git push origin v1.0.9
-   ```
+## Day-to-day use
 
-5. Open **Actions > Release extension**. When automatic submission is enabled,
-   a successful run means Google accepted the submission; it does not mean the
-   review has finished or every user's Chrome has updated.
+Change the extension, run `npm test` and
+`python3 -m unittest discover -s scripts -p 'test_*.py'`, then commit and push to
+main. Test handset/API behavior changes against an appropriate FS PBX test account.
+Check **Actions > Submit Chrome Web Store update** for the source commit,
+package artifact and store result. Keep release history in `CHANGELOG.md`;
+the README should describe current installation and usage.
 
-To test Google authentication first, use a new version/tag with automatic
-submission disabled, then run **Release extension** manually from `main` with
-`store_action=upload`. Complete that draft's submission in the Google dashboard.
-Use the next version for your first fully automatic tag release.
+The package builder includes only its explicit runtime allowlist. New runtime
+assets must be added to `FILES` in `scripts/package.py`. Documentation, tests,
+build scripts and credentials are excluded from the store ZIP.
 
-Do not reuse the already published `1.0.8` version for an update. If a submission
-fails after upload, inspect the dashboard and finish the draft there when
-appropriate rather than repeatedly re-uploading the same version. GitHub release
-assets are not overwritten on reruns. Correct a released mistake with a new
-version containing the fix or reverted code.
+GitHub stores the source and optional release downloads. Chrome Web Store
+delivers approved updates to users who installed the store version. Unpacked
+development installations still need manual reloads. No separate hosting server
+or GitHub Pages deployment is needed.
 
-Users who installed through Chrome Web Store receive approved updates through
-Chrome's normal update process. Unpacked test copies remain manual installations.
+Optional GitHub releases remain available through **Create GitHub release**:
+update both source versions, push the matching tag, or manually run it with an
+existing tag. Tag downloads use the source version; automatic Chrome packages
+use the fourth build component. The tag workflow has no Google publishing access.
 
 ## Validation and references
 
-The existing extension tests and additional mock publishing tests are runnable
-locally. Check the GitHub Actions run for this commit for its CI result. Google
-authentication and Chrome Web Store upload require the configuration above and
-have not yet been tested end to end.
+Tests cover version ordering, deterministic packages, unchanged source files,
+credential exclusion, read-only checks, deferred reviews and uploads, rejected
+versions, duplicate prevention, and upload/submission failures. Live Google
+authentication and submission must be verified using the check/publish runs above.
 
 - [Chrome Web Store API setup](https://developer.chrome.com/docs/webstore/using-api)
 - [Chrome service accounts](https://developer.chrome.com/docs/webstore/service-accounts)
-- [Google's GitHub authentication action](https://github.com/google-github-actions/auth)
-- [Upload API](https://developer.chrome.com/docs/webstore/api/reference/rest/v2/media/upload)
+- [Google GitHub authentication action](https://github.com/google-github-actions/auth)
+- [Chrome version format](https://developer.chrome.com/docs/extensions/reference/manifest/version)
+- [Store status API](https://developer.chrome.com/docs/webstore/api/reference/rest/v2/publishers.items/fetchStatus)
 - [Publish API](https://developer.chrome.com/docs/webstore/api/reference/rest/v2/publishers.items/publish)
-- [Chrome update lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/extensions-update-lifecycle)

@@ -2,14 +2,14 @@
 
 A Chrome Manifest V3 extension that sends a selected number to an FS PBX desk phone through the existing click-to-dial API. Browser audio, Ringotel and a softphone are not required.
 
-**Distribution:** this is an unpacked extension for manual installation and live testing. It has not been published to or approved by the Chrome Web Store. See `STORE_SUBMISSION.md` for the publication path.
+**Distribution:** FS PBX Click to Dial is approved and published in the Chrome Web Store. Install it using the listing link supplied by your FS PBX administrator to receive approved updates automatically. The source folder can also be loaded unpacked for development.
 
 **Source hosting and automatic releases:** see [RELEASING.md](RELEASING.md) for
-the `nemerald-voip/fs-pbx-chrome-extension` GitHub release setup, automated
-tests and ZIP builds, and optional Chrome Web Store submission. Store automation
-is inactive until Google authentication and repository variables are configured.
+automatic versioning, tests, ZIP builds, and Chrome Web Store submission on
+every push to `main`. The one-time Google publishing connection must be configured
+before submissions work; the workflow reports missing configuration explicitly.
 
-## Install in desktop Chrome
+## Install an unpacked development copy in desktop Chrome
 
 1. Extract this ZIP to a permanent folder on your computer. Keep that folder after installation.
 2. Open `chrome://extensions`.
@@ -73,6 +73,10 @@ The extension reports **Dial command sent**, not **Call connected**: API accepta
 Use a dedicated, least-privileged FS PBX user/token, never a superadmin token. The extension's configured source extension is a UI preference; authorization is enforced by FS PBX. Servers with the extension-access hardening can return `forbidden_extension` when the token owner cannot access the configured extension. Verify the user's tenant access, phone-control permissions, and extension access before rollout. Older server versions may not enforce the extension-specific restriction.
 
 ## Updating
+
+Chrome Web Store installations receive approved versions through Chrome's normal
+update process. Maintainers push changes to `main`; the configured publishing
+workflow handles versioning and submission, including retrying after earlier reviews.
 
 For an unpacked installation, replace the files in the same installed folder,
 click **Reload** at `chrome://extensions`, and refresh open website tabs. Keep the

@@ -1,6 +1,9 @@
 # Publishing as an FS PBX Chrome Web Store extension
 
-The developer account is verified. Version 1.0.8 is ready for its first store upload; account verification does not mean Google has reviewed or approved the extension.
+The publisher confirmed that the first extension release is approved and published.
+Keep using the same store item for updates. See [RELEASING.md](RELEASING.md) for
+automatic submission on main pushes and the one-time Google connection.
+The first-listing checklist below is retained for reference.
 
 ## Publication steps
 

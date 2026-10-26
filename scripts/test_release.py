@@ -4,7 +4,7 @@ import tempfile
 import unittest
 import zipfile
 from chrome_store import upload_and_submit
-from package import build, FILES, ROOT
+from package import automatic_version, build, FILES, ROOT
 
 
 class FakeClient:
@@ -67,6 +67,86 @@ class ReleaseTests(unittest.TestCase):
             upload_and_submit(client, self.package, True)
         self.assertEqual(len(client.calls), 1)
 
+    def test_automatic_version_is_stable_and_increases_per_commit(self):
+        self.assertEqual(automatic_version("1.0.8", 6), "1.0.8.6")
+        self.assertEqual(automatic_version("1.0.8", 6), automatic_version("1.0.8", 6))
+        self.assertEqual(automatic_version("1.0.8", 7), "1.0.8.7")
+        self.assertEqual(automatic_version("1.0.8", 65536), "1.0.9.0")
+        for base, count in [("1.0.8.1", 6), ("1.00.8", 6), ("1.0.8", 0),
+                            ("1.0.8", -1), ("1.0.8", True), ("1.0.65535", 65536)]:
+            with self.subTest(base=base, count=count), self.assertRaises(ValueError):
+                automatic_version(base, count)
+
+    def test_check_mode_cannot_upload_even_with_publish_option(self):
+        client = FakeClient([{}])
+        self.assertEqual(upload_and_submit(client, self.package, True, check_only=True), "READY")
+        self.assertEqual([call[0][0] for call in client.calls], ["GET"])
+
+    def test_scheduled_retry_skips_an_already_published_version(self):
+        client = FakeClient([{"publishedItemRevisionStatus": {
+            "state": "PUBLISHED", "distributionChannels": [{"crxVersion": "1.0.9.0"}]}}])
+        self.assertEqual(upload_and_submit(client, self.package, True, automatic=True), "ALREADY_PUBLISHED")
+        self.assertEqual(len(client.calls), 1)
+
+    def test_pending_review_defers_then_next_run_submits_new_changes(self):
+        client = FakeClient([
+            {"submittedItemRevisionStatus": {"state": "PENDING_REVIEW"}},
+            {"publishedItemRevisionStatus": {
+                "state": "PUBLISHED", "distributionChannels": [{"crxVersion": "1.0.8"}]}},
+            {"uploadState": "SUCCEEDED", "crxVersion": "1.0.9"},
+            {"state": "PENDING_REVIEW"},
+        ])
+        self.assertEqual(upload_and_submit(client, self.package, True, automatic=True), "DEFERRED_REVIEW")
+        self.assertEqual(len(client.calls), 1)
+        self.assertEqual(upload_and_submit(client, self.package, True, automatic=True), "PENDING_REVIEW")
+        self.assertEqual([call[0][1] for call in client.calls],
+                         ["fetchStatus", "fetchStatus", "upload", "publish"])
+
+    def test_staged_submission_is_not_cancelled_or_published_automatically(self):
+        client = FakeClient([{"submittedItemRevisionStatus": {"state": "STAGED"}}])
+        self.assertEqual(upload_and_submit(client, self.package, True, automatic=True), "STAGED_REQUIRES_PUBLISH")
+        self.assertEqual(len(client.calls), 1)
+
+    def test_ambiguous_publish_response_is_not_retried_while_in_review(self):
+        client = FakeClient([{"submittedItemRevisionStatus": {
+            "state": "PENDING_REVIEW", "distributionChannels": [{"crxVersion": "1.0.9"}]}}])
+        self.assertEqual(upload_and_submit(client, self.package, True, automatic=True), "DEFERRED_REVIEW")
+        self.assertEqual(len(client.calls), 1)
+
+    def test_automatic_mode_refuses_newer_store_versions_and_policy_flags(self):
+        statuses = [
+            {"publishedItemRevisionStatus": {
+                "state": "PUBLISHED", "distributionChannels": [{"crxVersion": "1.0.10"}]}},
+            {"warned": True}, {"takenDown": True},
+            {"submittedItemRevisionStatus": {"state": "UNKNOWN_FUTURE_STATE"}},
+        ]
+        for status in statuses:
+            with self.subTest(status=status):
+                client = FakeClient([status])
+                with self.assertRaises(RuntimeError):
+                    upload_and_submit(client, self.package, True, automatic=True)
+                self.assertEqual(len(client.calls), 1)
+
+    def test_same_rejected_or_cancelled_version_is_not_repeatedly_submitted(self):
+        for state in ["REJECTED", "CANCELLED"]:
+            client = FakeClient([{"submittedItemRevisionStatus": {
+                "state": state, "distributionChannels": [{"crxVersion": "1.0.9"}]}}])
+            with self.assertRaises(RuntimeError):
+                upload_and_submit(client, self.package, True, automatic=True)
+            self.assertEqual(len(client.calls), 1)
+
+    def test_new_commit_can_replace_an_older_rejected_submission(self):
+        client = FakeClient([
+            {"submittedItemRevisionStatus": {
+                "state": "REJECTED", "distributionChannels": [{"crxVersion": "1.0.8"}]}},
+            {"uploadState": "SUCCEEDED"}, {"state": "PENDING_REVIEW"}])
+        self.assertEqual(upload_and_submit(client, self.package, True, automatic=True), "PENDING_REVIEW")
+
+    def test_outstanding_async_upload_defers_without_mutation(self):
+        client = FakeClient([{"lastAsyncUploadState": "IN_PROGRESS"}])
+        self.assertEqual(upload_and_submit(client, self.package, True, automatic=True), "DEFERRED_UPLOAD")
+        self.assertEqual(len(client.calls), 1)
+
     def test_runtime_allowlist_excludes_credentials_and_build_files(self):
         root = Path(self.temp.name) / "source"
         root.mkdir()
@@ -85,6 +165,22 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(set(archive.namelist()), set(FILES))
         with self.assertRaises(ValueError):
             build(root, "v0.0.1")
+        originals = {name: (root / name).read_bytes() for name in (*FILES, "package.json")}
+        automatic_package, automatic = build(root, build_number=6)
+        self.assertEqual(automatic, automatic_version(version, 6))
+        expected_bytes = automatic_package.read_bytes()
+        build(root, build_number=6)
+        self.assertEqual(expected_bytes, automatic_package.read_bytes())
+        with zipfile.ZipFile(automatic_package) as archive:
+            self.assertEqual(set(archive.namelist()), set(FILES))
+            self.assertEqual(json.loads(archive.read("manifest.json"))["version"], automatic)
+            for name in FILES:
+                if name != "manifest.json":
+                    self.assertEqual(archive.read(name), originals[name])
+        for name, content in originals.items():
+            self.assertEqual((root / name).read_bytes(), content)
+        with self.assertRaises(ValueError):
+            build(root, "v" + version, build_number=6)
 
 
 if __name__ == "__main__":
