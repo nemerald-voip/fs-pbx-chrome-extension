@@ -52,6 +52,24 @@ versions together before the next push.
 
 ## One-time Google connection
 
+The project's publishing identifiers are:
+
+| Setting | Value |
+| --- | --- |
+| Google Cloud project | `fs-pbx-chrome-extension` |
+| Chrome publisher | `8ce782a1-16ea-4370-ad4e-e80fdbb8848e` |
+| Published extension | `jpfhcbkhadfmhiblmpkmndhigpgmkoal` |
+
+For this project, run `bash scripts/setup_google_publishing.sh` from a checkout
+in Google Cloud Shell. It creates or reuses the dedicated service account and
+identity pool, applies the main-only GitHub trust condition, and prints all
+Actions variables with their exact values. It does not create private keys.
+The script can be rerun after resolving a reported error.
+
+Then add the printed service-account email to your Chrome publisher, enter the
+printed GitHub variables, and complete the check/publish runs in steps 6–7 below.
+The alternative manual commands below document the same setup.
+
 Use the existing published store listing. Record its **32-letter extension ID**
 from the store URL and your **publisher ID** from the Chrome developer dashboard's
 publisher settings. These identifiers are not passwords.
@@ -64,11 +82,11 @@ needs to be stored in GitHub.
 2. In GitHub's **Settings > Secrets and variables > Actions > Variables**, set
    `CWS_AUTOMATION_ENABLED=false` while setting up.
 3. Run the following in Google Cloud Shell or an authenticated `gcloud` CLI.
-   Replace `YOUR_GOOGLE_CLOUD_PROJECT_ID`. The repository and owner IDs below
+   The project, repository and owner IDs below
    belong to `nemerald-voip/fs-pbx-chrome-extension`.
 
 ```bash
-PROJECT_ID='YOUR_GOOGLE_CLOUD_PROJECT_ID'
+PROJECT_ID='fs-pbx-chrome-extension'
 REPOSITORY_ID='1426137280'
 OWNER_ID='58834187'
 REPOSITORY='nemerald-voip/fs-pbx-chrome-extension'
